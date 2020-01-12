@@ -53,3 +53,23 @@ optimizer = torch.optim.SGD(optimizer_grouped_parameters,
 **test prec 76.95**
 
 ![](MarkdownPic/0112-1125.png)
+
+
+## vgg with 224
+
+epoch 25
+
+lr 0.05
+
+decay 10 16 22
+
+no bias decay
+
+transforms resize256, crop224, jitter0.4
+
+vgg19bn, freeze and free classifier3,6
+
+**test prec 71.36**
+
+![](MarkdownPic/0112-1210.png)
+

@@ -130,8 +130,8 @@ def main():
     # calculated by transforms_utils.py
     normalize = transforms.Normalize(mean=[0.5335619, 0.47571668, 0.4280075], std=[0.26906276, 0.2592897, 0.26745376])
     transform_train = transforms.Compose([
-        transforms.Resize(384),  # 384, 256
-        transforms.RandomCrop(320),  # 320, 224
+        transforms.Resize(256),  # 384, 256
+        transforms.RandomCrop(224),  # 320, 224
         transforms.RandomHorizontalFlip(),
         # transforms.RandomVerticalFlip(),
         transforms.ColorJitter(0.4, 0.4, 0.4),
@@ -140,8 +140,8 @@ def main():
         normalize,
     ])
     transform_test = transforms.Compose([
-        transforms.Resize(384),  # 384
-        transforms.RandomCrop(320),  # 320
+        transforms.Resize(256),  # 384
+        transforms.RandomCrop(224),  # 320
         transforms.ToTensor(),
         normalize,
     ])
