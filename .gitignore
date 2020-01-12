@@ -1,0 +1,9 @@
+.idea/*
+Logs/*
+checkpoints/*
+*.pth
+*.pkl
+TensorboardXLog/*
+dataset/*
+*/__pychche__/*
+*.pyc
