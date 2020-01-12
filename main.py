@@ -104,18 +104,18 @@ def main():
     criterion = nn.CrossEntropyLoss().cuda()
 
     # no bias decay
-    # param_optimizer = list(filter(lambda p: p.requires_grad, model.parameters()))
-    # no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
-    # optimizer_grouped_parameters = [
-    #         {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay) and p.requires_grad], 'weight_decay': 0.01},
-    #         {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay) and p.requires_grad], 'weight_decay': 0.0}
-    # ]
-    # optimizer = torch.optim.SGD(optimizer_grouped_parameters,
-    #                             lr=args.lr, momentum=0.9, weight_decay=5e-4)
+    param_optimizer = list(filter(lambda p: p.requires_grad, model.parameters()))
+    no_decay = ['bias', 'LayerNorm.bias', 'LayerNorm.weight']
+    optimizer_grouped_parameters = [
+            {'params': [p for n, p in model.named_parameters() if not any(nd in n for nd in no_decay) and p.requires_grad], 'weight_decay': 0.001},
+            {'params': [p for n, p in model.named_parameters() if any(nd in n for nd in no_decay) and p.requires_grad], 'weight_decay': 0.0}
+    ]
+    optimizer = torch.optim.SGD(optimizer_grouped_parameters,
+                                lr=args.lr, momentum=0.9, weight_decay=5e-4)
 
     # original optimizer
-    optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()),
-                                lr=args.lr, momentum=0.9, weight_decay=5e-4)
+    # optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()),
+    #                             lr=args.lr, momentum=0.9, weight_decay=5e-4)
     print('trainable parameters:')
     for param in model.named_parameters():
         if param[1].requires_grad:
