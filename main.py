@@ -19,6 +19,7 @@ from torch.utils.data.dataloader import DataLoader
 from tensorboardX import SummaryWriter
 
 from torchvision.models.vgg import vgg19_bn, vgg16_bn
+from torchvision.models.inception import inception_v3
 from ptseg.models.resnet_ori import resnet50, resnet34, resnet101, resnet152
 from ptseg.models.SENet.senet.se_resnet import se_resnet152
 from ptseg.models.SENet_ori.se_resnet import se_resnet50
@@ -60,7 +61,8 @@ model_zoo = {'resnet50': resnet50,
              'vgg16bn': vgg16_bn,
              'vgg19bn': vgg19_bn,
              'senet152': se_resnet152,
-             'se_resnet50': se_resnet50}
+             'se_resnet50': se_resnet50,
+             'inception': inception_v3}
 
 
 def main():
@@ -88,7 +90,9 @@ def main():
     elif 'senet' in args.arch:
         model.fc = nn.Linear(model.fc.in_features, args.num_classes)
     elif 'se_' in args.arch:
-        model.fc = nn.Linear(model.fc.in_features, args.num_claases)
+        model.fc = nn.Linear(model.fc.in_features, args.num_classes)
+    elif 'inception' in args.arch:
+        model.fc = nn.Linear(model.fc.in_features, args.num_classes)
     print(model)
     # exit()
     # resume checkpoint
@@ -130,8 +134,8 @@ def main():
     # calculated by transforms_utils.py
     normalize = transforms.Normalize(mean=[0.5335619, 0.47571668, 0.4280075], std=[0.26906276, 0.2592897, 0.26745376])
     transform_train = transforms.Compose([
-        transforms.Resize(256),  # 384, 256
-        transforms.RandomCrop(224),  # 320, 224
+        transforms.Resize(384),  # 384, 256
+        transforms.RandomCrop(299),  # 320, 224
         transforms.RandomHorizontalFlip(),
         # transforms.RandomVerticalFlip(),
         transforms.ColorJitter(0.4, 0.4, 0.4),
@@ -140,8 +144,8 @@ def main():
         normalize,
     ])
     transform_test = transforms.Compose([
-        transforms.Resize(256),  # 384
-        transforms.RandomCrop(224),  # 320
+        transforms.Resize(384),  # 384
+        transforms.RandomCrop(299),  # 320
         transforms.ToTensor(),
         normalize,
     ])
@@ -220,7 +224,10 @@ def train(train_loader, model, criterion, lr_scheduler, epoch, warm_up=False):
         inputs = inputs.cuda()
         labels = labels.cuda()
         labels = torch.squeeze(labels)
-        output = model(inputs)
+        if 'inception' in args.arch:
+            output, aux = model(inputs)
+        else:
+            output = model(inputs)
         loss_accu = criterion(output, labels)
         # loss_accu = Loss(output, labels)
         if args.scale_factor > 1:

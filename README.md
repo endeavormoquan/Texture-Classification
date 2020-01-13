@@ -2,8 +2,8 @@
 
 ## TODO List
 
-- [ ] try other net, vgg, inception, resnext
-- [ ] focal loss
+- [x] try other net, vgg, inception, resnext
+- [x] focal loss
 - [ ] label smoothing
 
 ## 0112-10-10
@@ -73,3 +73,51 @@ vgg19bn, freeze and free classifier3,6
 
 ![](MarkdownPic/0112-1210.png)
 
+
+## 0112-17-07
+
+try focal loss based on the baseline in 0112-11-25
+
+changes compare with 0112-11-25
+
+Focal loss with gamma=2 alpha = [1]*num_classes
+
+initial lr=0.05: WARNING:root:NaN or Inf found in input tensor.
+initial lr=0.1: WARNING:root:NaN or Inf found in input tensor.
+initial lr=0.01
+
+
+```python
+# criterion = nn.CrossEntropyLoss().cuda()
+criterion = FocalLoss([1]*args.num_classes, gamma=2, num_classes=args.num_classes).cuda()
+```
+
+**test prec 75.89**
+![](MarkdownPic/0112-1716.png)
+
+
+## re-implement 11-25
+
+commit id: senet152 with no bias decay
+or
+commit id: try vgg19bn
+
+
+## inception
+
+note that the input shape is 299x299
+
+modify train scripts:
+
+```python
+if 'inception' in args.arch:
+    output, aux = model(inputs)
+else:
+    output = model(inputs)
+```
+
+initial lr=0.05
+
+**test prec 73.58**, seems that lr is too large and free too much parameters.
+
+![](MarkdownPic/0112-2017.png)

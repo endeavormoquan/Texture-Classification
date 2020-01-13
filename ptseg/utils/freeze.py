@@ -62,6 +62,14 @@ def free_senet152(model):
     return model
 
 
+def free_inception(model):
+    for name, param in model.fc.named_parameters():
+        param.requires_grad = True
+    for name, param in model.Mixed_7c.named_parameters():
+        param.requires_grad = True
+    return model
+
+
 def freeze_params(model_name, model):
     for param in model.parameters():
         param.requires_grad = False
@@ -89,6 +97,9 @@ def freeze_params(model_name, model):
         return model
     if model_name == 'se_resnet50':
         model = free_senet152(model)
+        return model
+    if model_name == 'inception':
+        model = free_inception(model)
         return model
     print('model name not registered in freeze, no parameters will be trained.')
     return model
