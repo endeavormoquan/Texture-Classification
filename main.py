@@ -53,6 +53,8 @@ parser.add_argument('--scale-factor', type=float, default='1')
 parser.add_argument('--print_freq', type=int, default=5)
 parser.add_argument('--freeze', action='store_false', default=True)
 parser.add_argument('--num-classes', type=int, default=47)
+parser.add_argument('--resize', type=int, default=384)
+parser.add_argument('--crop', type=int, default=320)
 parser.add_argument('--note', type=str, default='')
 
 model_zoo = {'resnet50': resnet50,
@@ -135,8 +137,8 @@ def main():
     # calculated by transforms_utils.py
     normalize = transforms.Normalize(mean=[0.5335619, 0.47571668, 0.4280075], std=[0.26906276, 0.2592897, 0.26745376])
     transform_train = transforms.Compose([
-        transforms.Resize(384),  # 384, 256
-        transforms.RandomCrop(299),  # 320, 224
+        transforms.Resize(args.resize),  # 384, 256
+        transforms.RandomCrop(args.crop),  # 320, 224
         transforms.RandomHorizontalFlip(),
         # transforms.RandomVerticalFlip(),
         transforms.ColorJitter(0.4, 0.4, 0.4),
@@ -145,8 +147,8 @@ def main():
         normalize,
     ])
     transform_test = transforms.Compose([
-        transforms.Resize(384),  # 384
-        transforms.RandomCrop(299),  # 320
+        transforms.Resize(args.resize),  # 384
+        transforms.RandomCrop(args.crop),  # 320
         transforms.ToTensor(),
         normalize,
     ])
@@ -179,6 +181,10 @@ def main():
     logdir = os.path.join('TensorBoardXLog', current_time)
     writer = SummaryWriter(log_dir=logdir)
 
+    dummy_input = torch.randn(args.BATCH, 3, crop, crop).cuda()
+    writer.add_graph(model, dummy_input)
+    writer.close()
+    exit()
     best_score = 0
     for epoch in range(args.start_epoch + 1, args.EPOCHS):  # args.start_epoch = -1 for MultistepLr
         log_saver = open(log_save_path, mode='a')
