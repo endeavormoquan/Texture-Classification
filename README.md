@@ -144,3 +144,7 @@ with label smoothing
 ```python
 Loss = LabelSmoothingLoss(args.num_classes, smoothing=0.1)
 ```
+
+**test prec 77.21**
+
+![](MarkdownPic/0113-1440.png)
