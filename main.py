@@ -47,7 +47,7 @@ parser.add_argument('--resume', nargs='?', type=str, default=None,
                     help='Path to previous saved model to restart from')
 parser.add_argument('--start_epoch', type=int, default=-1)
 parser.add_argument('--warmup_epochs', type=int, default=1)
-parser.add_argument('--decay-epoch', default="10, 16, 22", type=lambda x: [int(_) for _ in x.split(',')])
+parser.add_argument('--decay-epoch', default="7, 13, 20", type=lambda x: [int(_) for _ in x.split(',')])
 parser.add_argument('--gamma', type=float, default='0.1')
 parser.add_argument('--scale-factor', type=float, default='1')
 parser.add_argument('--print_freq', type=int, default=5)
@@ -181,10 +181,8 @@ def main():
     logdir = os.path.join('TensorBoardXLog', current_time)
     writer = SummaryWriter(log_dir=logdir)
 
-    dummy_input = torch.randn(args.BATCH, 3, crop, crop).cuda()
+    dummy_input = torch.randn(args.BATCH, 3, args.crop, args.crop).cuda()
     writer.add_graph(model, dummy_input)
-    writer.close()
-    exit()
     best_score = 0
     for epoch in range(args.start_epoch + 1, args.EPOCHS):  # args.start_epoch = -1 for MultistepLr
         log_saver = open(log_save_path, mode='a')
@@ -223,6 +221,7 @@ def train(train_loader, model, criterion, lr_scheduler, epoch, warm_up=False):
     end = time.time()
 
     # Loss = CrossEntropyLabelSmooth(args.num_classes, epsilon=0.1)
+    Loss = LabelSmoothingLoss(args.num_classes, smoothing=0.1)
 
     model = model.train().cuda()
     for index, (inputs, labels) in enumerate(train_loader):
@@ -235,8 +234,8 @@ def train(train_loader, model, criterion, lr_scheduler, epoch, warm_up=False):
             output, aux = model(inputs)
         else:
             output = model(inputs)
-        loss_accu = criterion(output, labels)
-        # loss_accu = Loss(output, labels)
+        # loss_accu = criterion(output, labels)
+        loss_accu = Loss(output, labels)
         if args.scale_factor > 1:
             loss_accu = loss_accu * args.scale_factor
         loss_accu_ave.update(loss_accu, inputs.size(0))
@@ -275,6 +274,7 @@ def validate(test_loader, model, criterion):
     top5 = AverageMeter()
 
     # Loss = CrossEntropyLabelSmooth(args.num_classes, epsilon=0.1)
+    Loss = LabelSmoothingLoss(args.num_classes, smoothing=0.1)
 
     with torch.no_grad():
         model.eval().cuda()
@@ -284,8 +284,8 @@ def validate(test_loader, model, criterion):
             labels = labels.cuda()
             labels = torch.squeeze(labels)
             output = model(inputs)
-            loss = criterion(output, labels)
-            # loss = Loss(output, labels)
+            # loss = criterion(output, labels)
+            loss = Loss(output, labels)
             if args.scale_factor > 1:
                 loss = loss * args.scale_factor
             prec1, prec5 = get_accuracy(output.data, labels.cuda(), topk=(1, 5))

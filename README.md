@@ -2,9 +2,10 @@
 
 ## TODO List
 
-- [x] try other net, vgg, inception, resnext
-- [x] focal loss
-- [ ] label smoothing
+- [x] try other net, vgg, inception, resnext, not work
+- [x] focal loss, not works
+- [x] label smoothing, work
+- [ ] attention
 
 ## 0112-10-10
 
@@ -135,3 +136,11 @@ initial lr=0.01 gamma 0.2
 **test prec 72.+**
 
 ![](MarkdownPic/0113-1345.png)
+
+
+## senet152 0113-1440
+
+with label smoothing
+```python
+Loss = LabelSmoothingLoss(args.num_classes, smoothing=0.1)
+```
