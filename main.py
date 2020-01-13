@@ -48,6 +48,7 @@ parser.add_argument('--resume', nargs='?', type=str, default=None,
 parser.add_argument('--start_epoch', type=int, default=-1)
 parser.add_argument('--warmup_epochs', type=int, default=1)
 parser.add_argument('--decay-epoch', default="10, 16, 22", type=lambda x: [int(_) for _ in x.split(',')])
+parser.add_argument('--gamma', type=float, default='0.1')
 parser.add_argument('--scale-factor', type=float, default='1')
 parser.add_argument('--print_freq', type=int, default=5)
 parser.add_argument('--freeze', action='store_false', default=True)
@@ -161,7 +162,7 @@ def main():
                              num_workers=0, pin_memory=False)
     print('train data length:', len(train_loader), '. test data length:', len(test_loader), '\n')
 
-    lr_scheduler = MultiStepLR(optimizer, milestones=args.decay_epoch, gamma=0.1, last_epoch=args.start_epoch)
+    lr_scheduler = MultiStepLR(optimizer, milestones=args.decay_epoch, gamma=args.gamma, last_epoch=args.start_epoch)
 
     time_ = time.localtime(time.time())
     log_save_path = 'Logs/' + str(args.arch) + '_' + str(args.lr) + '_' + str(args.BATCH) + \

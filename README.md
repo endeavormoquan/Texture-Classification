@@ -121,3 +121,17 @@ initial lr=0.05
 **test prec 73.58**, seems that lr is too large and free too much parameters.
 
 ![](MarkdownPic/0112-2017.png)
+
+
+initial lr=0.01 gamma 0.5
+
+**test prec 73.49**, not fully trained
+
+![](MarkdownPic/0113-1248.png)
+
+
+initial lr=0.01 gamma 0.2
+
+**test prec 72.+**
+
+![](MarkdownPic/0113-1345.png)
