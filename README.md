@@ -147,4 +147,16 @@ Loss = LabelSmoothingLoss(args.num_classes, smoothing=0.1)
 
 **test prec 77.21**
 
+- [ ] adjust lr decay to achieve better performance
+
 ![](MarkdownPic/0113-1440.png)
+
+
+## senet152 0113-1519
+
+changes lr decay according to the tensorboardX compare with 0113-1440
+"7, 13, 20"
+
+**test prec 76.77**
+
+![](MarkdownPic/0113-1519.png)
