@@ -23,6 +23,8 @@ from torchvision.models.inception import inception_v3
 from ptseg.models.resnet_ori import resnet50, resnet34, resnet101, resnet152
 from ptseg.models.SENet.senet.se_resnet import se_resnet152
 from ptseg.models.SENet_ori.se_resnet import se_resnet50
+from ptseg.models.NTS.core.model import attention_net, ranking_loss, list_loss
+from ptseg.models.NTS.config import PROPOSAL_NUM
 
 from ptseg.utils import *
 from ptseg.utils.lr_helper import IterExponentialLR
@@ -65,7 +67,8 @@ model_zoo = {'resnet50': resnet50,
              'vgg19bn': vgg19_bn,
              'senet152': se_resnet152,
              'se_resnet50': se_resnet50,
-             'inception': inception_v3}
+             'inception': inception_v3,
+             'nts': attention_net}
 
 
 def main():
@@ -84,6 +87,10 @@ def main():
         model = model_zoo[args.arch]()
         state_dict = torch.load('D:\\PycharmWorkspace\\Torch-Texture-Classification\\seresnet50-60a8950a85b2b.pkl')
         model.load_state_dict(state_dict)
+    elif args.arch == 'nts':
+        model = attention_net()
+        state_dict = torch.load('D:\\PycharmWorkspace\\Torch-Texture-Classification\\nts50.pth')['net_state_dict']
+        model.load_state_dict(state_dict)
     else:
         model = model_zoo[args.arch](pretrained=True)
     if 'resnet' in args.arch:
@@ -96,19 +103,28 @@ def main():
         model.fc = nn.Linear(model.fc.in_features, args.num_classes)
     elif 'inception' in args.arch:
         model.fc = nn.Linear(model.fc.in_features, args.num_classes)
+    elif 'nts' in args.arch:
+        # model.pretrained_model.fc has no effect on overall results, no need to train, refer to core.model.py
+        model.pretrained_model.fc = nn.Linear(model.pretrained_model.fc.in_features, args.num_classes)
+        # need finetune
+        model.concat_net = nn.Linear(model.concat_net.in_features, args.num_classes)
+        model.partcls_net = nn.Linear(model.partcls_net.in_features, args.num_classes)
     print(model)
     # exit()
     # resume checkpoint
     checkpoint = None
-    if args.resume:
-        device = torch.cuda.current_device()
-        checkpoint = torch.load(args.resume, map_location=lambda storage, loc: storage.cuda(device))
-        state = convert_state_dict(checkpoint['model_state'])
-        model.load_state_dict(state)
+    # if args.resume:
+    #     device = torch.cuda.current_device()
+    #     checkpoint = torch.load(args.resume, map_location=lambda storage, loc: storage.cuda(device))
+    #     state = convert_state_dict(checkpoint['model_state'])
+    #     model.load_state_dict(state)
 
     model.cuda()
     model = freeze_params(args.arch, model)
-    criterion = nn.CrossEntropyLoss().cuda()
+
+    # criterion = CrossEntropyLabelSmooth(args.num_classes, epsilon=0.1)
+    criterion = LabelSmoothingLoss(args.num_classes, smoothing=0.1)
+    # criterion = nn.CrossEntropyLoss().cuda()
 
     # no bias decay
     param_optimizer = list(filter(lambda p: p.requires_grad, model.parameters()))
@@ -132,7 +148,6 @@ def main():
     #                              lr=args.lr, weight_decay=0.01)
     if args.resume:
         optimizer.load_state_dict(checkpoint['optimizer_state'])
-
     # normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     # calculated by transforms_utils.py
     normalize = transforms.Normalize(mean=[0.5335619, 0.47571668, 0.4280075], std=[0.26906276, 0.2592897, 0.26745376])
@@ -181,8 +196,8 @@ def main():
     logdir = os.path.join('TensorBoardXLog', current_time)
     writer = SummaryWriter(log_dir=logdir)
 
-    dummy_input = torch.randn(args.BATCH, 3, args.crop, args.crop).cuda()
-    writer.add_graph(model, dummy_input)
+    # dummy_input = torch.randn(args.BATCH, 3, args.crop, args.crop).cuda()
+    # writer.add_graph(model, dummy_input)
     best_score = 0
     for epoch in range(args.start_epoch + 1, args.EPOCHS):  # args.start_epoch = -1 for MultistepLr
         log_saver = open(log_save_path, mode='a')
@@ -220,9 +235,6 @@ def train(train_loader, model, criterion, lr_scheduler, epoch, warm_up=False):
     top5 = AverageMeter()
     end = time.time()
 
-    # Loss = CrossEntropyLabelSmooth(args.num_classes, epsilon=0.1)
-    Loss = LabelSmoothingLoss(args.num_classes, smoothing=0.1)
-
     model = model.train().cuda()
     for index, (inputs, labels) in enumerate(train_loader):
         if warm_up:
@@ -232,16 +244,34 @@ def train(train_loader, model, criterion, lr_scheduler, epoch, warm_up=False):
         labels = torch.squeeze(labels)
         if 'inception' in args.arch:
             output, aux = model(inputs)
+        elif 'nts' in args.arch:
+            _, concat_logits, part_logits, _, top_n_prob = model(inputs)
+            # print(concat_logits.shape, part_logits.shape, top_n_prob.shape)
+            # torch.Size([128, 47]) torch.Size([128, 4, 47]) torch.Size([128, 4])
+            output = concat_logits
         else:
             output = model(inputs)
-        # loss_accu = criterion(output, labels)
-        loss_accu = Loss(output, labels)
+
+        if 'nts' in args.arch:
+            logits = part_logits.view(part_logits.size(0) * PROPOSAL_NUM, -1)
+            targets = labels.unsqueeze(1).repeat(1, PROPOSAL_NUM).view(-1)
+            part_loss = list_loss(logits, targets).view(part_logits.size(0), PROPOSAL_NUM)
+
+            concat_loss = criterion(concat_logits, labels)
+            rank_loss = ranking_loss(top_n_prob, part_loss)
+            partcls_loss = criterion(part_logits.view(part_logits.size(0) * PROPOSAL_NUM, -1),
+                                     labels.unsqueeze(1).repeat(1, PROPOSAL_NUM).view(-1))
+            loss_accu = rank_loss + concat_loss + partcls_loss  # shape=[1]
+        else:
+            loss_accu = criterion(output, labels)  # shape=[]
+
         if args.scale_factor > 1:
             loss_accu = loss_accu * args.scale_factor
-        loss_accu_ave.update(loss_accu, inputs.size(0))
-        prec1, prec5 = get_accuracy(output, labels, topk=(1, 5))
+        loss_accu_ave.update(loss_accu.item(), inputs.size(0))
+        # prec1, prec5 = get_accuracy(output, labels, topk=(1, 5))
+        prec1 = get_formal_accuracy(output, labels)
         top1.update(prec1.item(), inputs.size(0))
-        top5.update(prec5.item(), inputs.size(0))
+        # top5.update(prec5.item(), inputs.size(0))
 
         model.zero_grad()
         loss_accu.backward()
@@ -254,11 +284,9 @@ def train(train_loader, model, criterion, lr_scheduler, epoch, warm_up=False):
             print('Epoch: [{0}/{1}][{2}/{3}] LR:{4:.6f}\t'
                   'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                   'Loss_Accu {loss_accu.val:.4f} ({loss_accu.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
                     epoch, args.EPOCHS, index, len(train_loader), lr,
-                    batch_time=batch_time, loss_accu=loss_accu_ave,
-                    top1=top1, top5=top5))
+                    batch_time=batch_time, loss_accu=loss_accu_ave, top1=top1))
         if index == 0:
             batch_time.reset()
         writer.add_scalar('scalar/train_prec', top1.avg, index+1+epoch*len(train_loader))
@@ -273,9 +301,6 @@ def validate(test_loader, model, criterion):
     top1 = AverageMeter()
     top5 = AverageMeter()
 
-    # Loss = CrossEntropyLabelSmooth(args.num_classes, epsilon=0.1)
-    Loss = LabelSmoothingLoss(args.num_classes, smoothing=0.1)
-
     with torch.no_grad():
         model.eval().cuda()
         end = time.time()
@@ -283,20 +308,40 @@ def validate(test_loader, model, criterion):
             inputs = inputs.cuda()
             labels = labels.cuda()
             labels = torch.squeeze(labels)
-            output = model(inputs)
-            # loss = criterion(output, labels)
-            loss = Loss(output, labels)
+
+            if 'inception' in args.arch:
+                output, aux = model(inputs)
+            elif 'nts' in args.arch:
+                _, concat_logits, part_logits, _, top_n_prob = model(inputs)
+                output = concat_logits
+            else:
+                output = model(inputs)
+
+            if 'nts' in args.arch:
+                logits = part_logits.view(part_logits.size(0) * PROPOSAL_NUM, -1)
+                targets = labels.unsqueeze(1).repeat(1, PROPOSAL_NUM).view(-1)
+                part_loss = list_loss(logits, targets).view(part_logits.size(0), PROPOSAL_NUM)
+
+                concat_loss = criterion(concat_logits, labels)
+                rank_loss = ranking_loss(top_n_prob, part_loss)
+                partcls_loss = criterion(part_logits.view(part_logits.size(0) * PROPOSAL_NUM, -1),
+                                         labels.unsqueeze(1).repeat(1, PROPOSAL_NUM).view(-1))
+                loss = rank_loss + concat_loss + partcls_loss
+            else:
+                loss = criterion(output, labels)
+
             if args.scale_factor > 1:
                 loss = loss * args.scale_factor
-            prec1, prec5 = get_accuracy(output.data, labels.cuda(), topk=(1, 5))
+            # prec1, prec5 = get_accuracy(output, labels, topk=(1, 5))
+            prec1 = get_formal_accuracy(output, labels)
 
             reduced_loss = loss.data.clone()
             reduced_prec1 = prec1.clone()
-            reduced_prec5 = prec5.clone()
+            # reduced_prec5 = prec5.clone()
 
             losses.update(reduced_loss.item(), inputs.size(0))
             top1.update(reduced_prec1.item(), inputs.size(0))
-            top5.update(reduced_prec5.item(), inputs.size(0))
+            # top5.update(reduced_prec5.item(), inputs.size(0))
 
             batch_time.update(time.time() - end)
             end = time.time()
@@ -305,10 +350,8 @@ def validate(test_loader, model, criterion):
                 print('Test: [{0}/{1}]\t'
                       'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
                       'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                       index, len(test_loader), batch_time=batch_time, loss=losses,
-                       top1=top1, top5=top5))
+                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})'.format(
+                       index, len(test_loader), batch_time=batch_time, loss=losses, top1=top1))
     return top1.avg, losses.avg
 
 

@@ -160,3 +160,14 @@ changes lr decay according to the tensorboardX compare with 0113-1440
 **test prec 76.77**
 
 ![](MarkdownPic/0113-1519.png)
+
+
+## NTS-net 0114-1857
+
+python main.py --arch nts --BATCH 32 --EPOCHS 200 --decay-epoch "50,100" --lr 0.05
+PROPOSAL_NUM = 4
+CAT_NUM = 4
+
+python main.py --arch nts --BATCH 32 --EPOCHS 200 --decay-epoch "50,100"  --lr 0.01
+PROPOSAL_NUM = 4
+CAT_NUM = 4

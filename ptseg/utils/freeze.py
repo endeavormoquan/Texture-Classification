@@ -70,6 +70,14 @@ def free_inception(model):
     return model
 
 
+def free_nts(model):
+    for name, param in model.concat_net.named_parameters():
+        param.requires_grad = True
+    for name, param in model.partcls_net.named_parameters():
+        param.requires_grad = True
+    return model
+
+
 def freeze_params(model_name, model):
     for param in model.parameters():
         param.requires_grad = False
@@ -100,6 +108,9 @@ def freeze_params(model_name, model):
         return model
     if model_name == 'inception':
         model = free_inception(model)
+        return model
+    if model_name == 'nts':
+        model = free_nts(model)
         return model
     print('model name not registered in freeze, no parameters will be trained.')
     return model

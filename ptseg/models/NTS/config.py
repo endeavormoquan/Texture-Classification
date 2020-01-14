@@ -1,0 +1,9 @@
+PROPOSAL_NUM = 4
+CAT_NUM = 4
+INPUT_SIZE = (320, 320)  # (w, h)
+LR = 0.001
+WD = 1e-4
+SAVE_FREQ = 1
+resume = ''
+test_model = 'model.ckpt'
+save_dir = '/data_4t/yangz/models/'

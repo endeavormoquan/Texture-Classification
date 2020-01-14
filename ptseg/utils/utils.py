@@ -40,6 +40,16 @@ def get_accuracy(output, target, topk=(1,)):
     return res
 
 
+def get_formal_accuracy(output, target):
+    batch_size = target.size(0)
+    _, pred = torch.max(output, 1)
+    correct = 0
+    correct += torch.sum(pred.data == target.data)
+    acc = torch.FloatTensor(1)
+    acc[0] = float(correct) / batch_size * 100.0
+    return acc
+
+
 class AverageMeter(object):
     """Computes and stores the average and current value"""
     def __init__(self):
