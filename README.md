@@ -164,6 +164,9 @@ changes lr decay according to the tensorboardX compare with 0113-1440
 
 ## NTS-net 0114-1857
 
+just free concat_net and partcls_net, not work.
+thought proposal_net should also be trained to find a better navigator in the NTS-net
+
 python main.py --arch nts --BATCH 32 --EPOCHS 200 --decay-epoch "50,100" --lr 0.05
 PROPOSAL_NUM = 4
 CAT_NUM = 4

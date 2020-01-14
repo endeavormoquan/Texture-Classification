@@ -71,6 +71,8 @@ def free_inception(model):
 
 
 def free_nts(model):
+    for name, param in model.proposal_net.named_parameters():
+        param.requires_grad = True
     for name, param in model.concat_net.named_parameters():
         param.requires_grad = True
     for name, param in model.partcls_net.named_parameters():

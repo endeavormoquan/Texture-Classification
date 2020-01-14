@@ -88,9 +88,10 @@ def main():
         state_dict = torch.load('D:\\PycharmWorkspace\\Torch-Texture-Classification\\seresnet50-60a8950a85b2b.pkl')
         model.load_state_dict(state_dict)
     elif args.arch == 'nts':
-        model = attention_net()
-        state_dict = torch.load('D:\\PycharmWorkspace\\Torch-Texture-Classification\\nts50.pth')['net_state_dict']
-        model.load_state_dict(state_dict)
+        baseblock_arch = 'resnet50'
+        model = attention_net(arch=baseblock_arch, topN=4, num_classes=args.num_classes)
+        # state_dict = torch.load('D:\\PycharmWorkspace\\Torch-Texture-Classification\\nts50.pth')['net_state_dict']
+        # model.load_state_dict(state_dict)
     else:
         model = model_zoo[args.arch](pretrained=True)
     if 'resnet' in args.arch:
@@ -104,11 +105,7 @@ def main():
     elif 'inception' in args.arch:
         model.fc = nn.Linear(model.fc.in_features, args.num_classes)
     elif 'nts' in args.arch:
-        # model.pretrained_model.fc has no effect on overall results, no need to train, refer to core.model.py
-        model.pretrained_model.fc = nn.Linear(model.pretrained_model.fc.in_features, args.num_classes)
-        # need finetune
-        model.concat_net = nn.Linear(model.concat_net.in_features, args.num_classes)
-        model.partcls_net = nn.Linear(model.partcls_net.in_features, args.num_classes)
+        pass  # done in NTS/core/model.py __init__ of attention_net
     print(model)
     # exit()
     # resume checkpoint
@@ -121,6 +118,10 @@ def main():
 
     model.cuda()
     model = freeze_params(args.arch, model)
+    print('trainable parameters:')
+    for param in model.named_parameters():
+        if param[1].requires_grad:
+            print(param[0])  # [0] name, [1] params
 
     # criterion = CrossEntropyLabelSmooth(args.num_classes, epsilon=0.1)
     criterion = LabelSmoothingLoss(args.num_classes, smoothing=0.1)
@@ -139,10 +140,7 @@ def main():
     # original optimizer
     # optimizer = torch.optim.SGD(filter(lambda p: p.requires_grad, model.parameters()),
     #                             lr=args.lr, momentum=0.9, weight_decay=5e-4)
-    print('trainable parameters:')
-    for param in model.named_parameters():
-        if param[1].requires_grad:
-            print(param[0])  # [0] name, [1] params
+
     # params should be a dict or a iterable tensor
     # optimizer = torch.optim.Adam(filter(lambda p: p.requires_grad, model.parameters()),
     #                              lr=args.lr, weight_decay=0.01)

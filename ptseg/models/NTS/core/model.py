@@ -2,10 +2,13 @@ from torch import nn
 import torch
 import torch.nn.functional as F
 from torch.autograd import Variable
-from ..core import resnet
+from ..core.resnet import resnet50, resnet152
 import numpy as np
 from ..core.anchors import generate_default_anchor_maps, hard_nms
 from ..config import CAT_NUM, PROPOSAL_NUM
+
+
+baseblock_zoo = {'resnet50': resnet50, 'resnet152': resnet152}
 
 
 class ProposalNet(nn.Module):
@@ -31,11 +34,11 @@ class ProposalNet(nn.Module):
 
 
 class attention_net(nn.Module):
-    def __init__(self, topN=4, num_classes=200):
+    def __init__(self, arch='resnet50', topN=4, num_classes=200):
         super(attention_net, self).__init__()
-        self.pretrained_model = resnet.resnet50(pretrained=True)
+        self.pretrained_model = baseblock_zoo[arch](pretrained=True)
         self.pretrained_model.avgpool = nn.AdaptiveAvgPool2d(1)
-        self.pretrained_model.fc = nn.Linear(512 * 4, num_classes)
+        self.pretrained_model.fc = nn.Linear(self.pretrained_model.fc.in_features, num_classes)
         self.proposal_net = ProposalNet()
         self.topN = topN
         self.concat_net = nn.Linear(2048 * (CAT_NUM + 1), num_classes)
